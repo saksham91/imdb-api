@@ -3,34 +3,15 @@ const express = require('express')
 const axios = require('axios')
 const cheerio = require('cheerio')
 
+const MovieInfo = require('./movieinfo.js');
+const Stars = require('./actors.js');
+
 const preFixurl = "https://www.imdb.com/user/ur"
 const userId = "25717993"
 const postFixUrl = "/ratings?ref_=nv_usr_rt_4"
 const endPointUrl = preFixurl + userId + postFixUrl
 
 const basePrefixUrl = "https://www.imdb.com"
-
-class MovieInfo {
-    constructor(title, year, userRating, moviePage, runTime, genre,
-                dirName, dirLink, actorList) {
-        this.title = title
-        this.year = year
-        this.userRating = userRating
-        this.moviePage = moviePage
-        this.runTime = runTime
-        this.genre = genre
-        this.dirName = dirName
-        this.dirLink = dirLink
-        this.actorList = actorList
-    }
-}
-
-class Stars {
-    constructor(name, link) {
-        this.name = name
-        this.link = link
-    }
-}
 
 const app = express()
 var movieList = []
@@ -67,12 +48,12 @@ app.get('/allRatedMovies', (req, res) => {
             // movie run time and genre
             const subInfo = $(element).find('p:first');
             const runTime = subInfo.find('span.runtime').text()
-            const genre = subInfo.find('span.genre').text()
+            const genre = subInfo.find('span.genre').text().trim()
 
             // director info
             const directorElement = $(element).find('p:nth-child(7)').find('a').first();
             const directorName = directorElement.text();
-            const directorLink = directorElement.attr('href');
+            const directorLink = basePrefixUrl + directorElement.attr('href');
 
             // top stars info
             var stars = []
@@ -86,10 +67,7 @@ app.get('/allRatedMovies', (req, res) => {
                                         directorName, directorLink, stars)
             movieList.push(movieData)
           });
-        const end = Date.now();
-        const timeDiff = (end - start)/1000
-        console.log(movieList)
-        console.log(`Time elapsed: ${Math.round(timeDiff)} secs`)
+        console.log(movieList.length)
     })
 })
 
