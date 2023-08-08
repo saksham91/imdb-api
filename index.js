@@ -4,8 +4,8 @@ const axios = require('axios')
 const cheerio = require('cheerio')
 const fs = require('fs')
 
-const MovieInfo = require('./movieinfo.js');
-const Stars = require('./actors.js');
+const MovieInfo = require('./model/movieinfo.js');
+const Stars = require('./model/actors.js');
 
 const preFixurl = "https://www.imdb.com/user/ur"
 const userId = "25717993"
@@ -85,7 +85,6 @@ app.get('/allRatedMovies', (req, res) => {
             let nextPageLink = nextPageAnchorTag.attr('href')
             let nextPageUrl = basePrefixUrl + nextPageLink
             pageCounter++
-            //console.log(nextPageUrl)
 
             if (pageCounter < pageLimit) {
                 getPageContent(nextPageUrl)
