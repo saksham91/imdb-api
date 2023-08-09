@@ -102,6 +102,42 @@ app.get('/allRatedMovies', (req, res) => {
     if (pageCounter == 0) getPageContent(endPointUrl)
 })
 
+app.get('/movieCast/:title', (req, res) => {
+    res.set('Content-Type', 'text/plain')
+    const title = req.params.title
+    const baseMovieUrl = "https://www.imdb.com/title/"
+    const fullMovieUrl = baseMovieUrl + title + "/fullcredits"
+    axios.get(fullMovieUrl)
+    .then((response) => {
+        const $ = cheerio.load(response.data)
+        const castList = $('table.cast_list');
+        const actors = [];
+
+        if (castList.length) {
+            castList.find('tr.even, tr.odd').each((index, row) => {
+                const actorName = $(row).find('td:not(.character)').find('a').text().trim();
+                if (actorName) {
+                    actors.push(actorName);
+                }
+            });
+            res.end(JSON.stringify(actors, null, 4));
+        } else {
+            console.log('Cast list not found.');
+        }
+    })
+    .catch((error) => {
+        if (error.response) {
+            //console.log(error.response.data);
+            res.end(`Error: ${error.response.status}`);
+            //console.log(error.response.headers);
+          } else if (error.request) {
+            console.log(error.request);
+          } else {
+            console.log('Error', error.message);
+          }
+    })
+})
+
 app.listen(PORT, () => console.log(`Server running on PORT ${PORT}`))
 
 
