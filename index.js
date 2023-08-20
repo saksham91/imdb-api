@@ -1,4 +1,4 @@
-const PORT = 8000
+const PORT = process.env.PORT || 8000
 const express = require('express')
 const axios = require('axios')
 const cheerio = require('cheerio')
@@ -46,7 +46,14 @@ app.get('/allRatedMovies', (req, res) => {
                 // homepage link for the movie title
                 const anchorTag = headerTag.find('a');
                 const movieLink = anchorTag.attr('href');
-                const moviePage = basePrefixUrl + movieLink
+                const match = movieLink.match(/\/title\/([a-z0-9]+)\//i);
+
+                //const moviePage = basePrefixUrl + movieLink
+
+                var movieTitleId = ""
+                if (match) {
+                    movieTitleId = match[1];
+                }
 
                 // movie name
                 const movieName = anchorTag.text();
@@ -56,8 +63,21 @@ app.get('/allRatedMovies', (req, res) => {
                 const year = yearTag.text().trim();
 
                 // movie rating by the user
-                const ratingWidget = $(element).find('.ipl-rating-widget');
-                const ratingValue = ratingWidget.find('span.ipl-rating-star__rating').text().trim()
+                const ratingWidget = $(element).find('div.ipl-rating-widget');
+                const ratingValue = ratingWidget.find('span.ipl-rating-star__rating').prop('innerHTML')
+
+                // $(element).find('.ipl-rating-interactive__state').each(function() {
+                //     console.log("Checked: " + $(this).innerText)
+                // })
+
+                // var ratingValue = "1"
+                // if (movieTitleId) { 
+                //     const idToCheck = "#ipl-rating-selector-" + movieTitleId
+                //     const dataValue = $(idToCheck).attr('data-value');
+                //     if (dataValue) {
+                //         ratingValue = dataValue;
+                //       }
+                // }
 
                 // movie run time and genre
                 const subInfo = $(element).find('p:first');
@@ -77,7 +97,7 @@ app.get('/allRatedMovies', (req, res) => {
                     stars.push(new Stars(starName, basePrefixUrl + starLink))
                 });
 
-                var movieData = new MovieInfo(movieName, year, ratingValue, moviePage, runTime, genre,
+                var movieData = new MovieInfo(movieName, year, ratingValue, movieTitleId, runTime, genre,
                                             directorName, directorLink, stars)
                 movieList.push(movieData)
             });
@@ -86,10 +106,10 @@ app.get('/allRatedMovies', (req, res) => {
             let nextPageUrl = basePrefixUrl + nextPageLink
             pageCounter++
 
-            if (pageCounter < pageLimit) {
+            if (pageCounter < 1) {
                 getPageContent(nextPageUrl)
             } else {
-                res.end(JSON.stringify(movieList, null, 4))
+                res.end(JSON.stringify({"rated":movieList}, null, 4))
                 const now = new Date()
                 console.log((now - start)/1000)
                 //exportResults(movieList)
@@ -120,7 +140,7 @@ app.get('/movieCast/:title', (req, res) => {
                     actors.push(actorName);
                 }
             });
-            res.end(JSON.stringify(actors, null, 4));
+            res.end(JSON.stringify({"cast":actors}, null, 4));
         } else {
             console.log('Cast list not found.');
         }
@@ -131,9 +151,9 @@ app.get('/movieCast/:title', (req, res) => {
             res.end(`Error: ${error.response.status}`);
             //console.log(error.response.headers);
           } else if (error.request) {
-            console.log(error.request);
+            res.end(`Error: ${error.request}`);
           } else {
-            console.log('Error', error.message);
+            res.end(`Error: ${error.message}`);
           }
     })
 })
