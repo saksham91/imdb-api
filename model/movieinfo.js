@@ -1,12 +1,13 @@
 class MovieInfo {
-    constructor(title, year, userRating, moviePage, runTime, genre,
+    constructor(title, year, overallRating, userRating, moviePage, runTime, numVotes,
                 dirName, dirLink, actorList) {
         this.title = title
         this.year = year
+        this.overallRating = overallRating
         this.userRating = userRating
         this.moviePage = moviePage
         this.runTime = runTime
-        this.genre = genre
+        this.numVotes = numVotes
         this.dirName = dirName
         this.dirLink = dirLink
         this.actorList = actorList
