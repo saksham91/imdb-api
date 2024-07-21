@@ -6,10 +6,11 @@ const fs = require('fs')
 
 const MovieInfo = require('./model/movieinfo.js');
 const Stars = require('./model/actors.js');
+const { log } = require('console')
 
 const preFixurl = "https://www.imdb.com/user/ur"
 const userId = "25717993"
-const postFixUrl = "/ratings?ref_=nv_usr_rt_4"
+const postFixUrl = "/ratings?view=detailed"
 const endPointUrl = preFixurl + userId + postFixUrl
 const outputFile = 'data.json'
 
@@ -17,6 +18,10 @@ const basePrefixUrl = "https://www.imdb.com"
 
 const app = express()
 var movieList = []
+
+let config = {
+    headers: {'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 11_2_1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/88.0.4324.192 Safari/537.36'}
+}
 
 const exportResults = (parsedResults) => {
     fs.writeFile(outputFile, JSON.stringify(parsedResults, null, 4), (err) => {
@@ -32,23 +37,25 @@ app.get('/', (req, res) => {
 
 app.get('/allRatedMovies', (req, res) => {
     const start = new Date();
+    res.set('Content-Type', 'text/plain')
     let pageCounter = 0
     const getPageContent = async (url) => {
-        await axios.get(url)
+        await axios.get(url, config)
         .then((response) => {
             const $ = cheerio.load(response.data)
-            var numRatedStr = $('div.lister-list-length > span').text()
-            var numRatedInt = Number(numRatedStr.replace(",", ""))
+            var numRatedStr = $('div[data-testid="list-page-mc-total-items"]').text()
+            var numRatedInt = Number(numRatedStr)
             let pageLimit = Math.ceil(Number(numRatedInt)/100)
             //console.log(numRatedInt)
-            $('.lister-item-content').each((index, element) => {
-                const headerTag = $(element).find('.lister-item-header');
+            $('.ipc-metadata-list-summary-item').each((index, element) => {
+                const movieInfoContainerDiv = $(element).find('div.sc-b189961a-0 hBZnfJ');
+                const movieNameTag = $(element).find('.ipc-title--base');
                 // homepage link for the movie title
-                const anchorTag = headerTag.find('a');
+                const anchorTag = movieNameTag.find('a');
                 const movieLink = anchorTag.attr('href');
                 const match = movieLink.match(/\/title\/([a-z0-9]+)\//i);
 
-                //const moviePage = basePrefixUrl + movieLink
+                // const moviePage = basePrefixUrl + movieLink
 
                 var movieTitleId = ""
                 if (match) {
@@ -56,15 +63,21 @@ app.get('/allRatedMovies', (req, res) => {
                 }
 
                 // movie name
-                const movieName = anchorTag.text();
+                const movieTag = anchorTag.find('h3').text().split(".");
+                const movieName = movieTag[1].trim()
 
                 // year in which the movie was released
-                const yearTag = headerTag.find('span.lister-item-year');
-                const year = yearTag.text().trim();
+                let yearReleased, runTime, censorRated;
+                const metaDataSpans = $('div.dli-title-metadata > span.dli-title-metadata-item');
+                yearReleased = $(metaDataSpans[0]).text();
+                runTime = $(metaDataSpans[1]).text();
+                censorRated = $(metaDataSpans[2]).text();
 
                 // movie rating by the user
-                const ratingWidget = $(element).find('div.ipl-rating-widget');
-                const ratingValue = ratingWidget.find('span.ipl-rating-star__rating').prop('innerHTML')
+                const ratingWidget = $(element).find('div.dli-ratings-container');
+                const overallRating = ratingWidget.find('span.ipc-rating-star--rating').text();
+                const numVotes = ratingWidget.find('span.ipc-rating-star--voteCount').text().trim().replace(/[\(\)]+/g,'');
+                const userRating = ratingWidget.find('span.ipc-rating-star--currentUser > span.ipc-rating-star--rating').text();
 
                 // $(element).find('.ipl-rating-interactive__state').each(function() {
                 //     console.log("Checked: " + $(this).innerText)
@@ -80,40 +93,46 @@ app.get('/allRatedMovies', (req, res) => {
                 // }
 
                 // movie run time and genre
-                const subInfo = $(element).find('p:first');
-                const runTime = subInfo.find('span.runtime').text()
-                const genre = subInfo.find('span.genre').text().trim()
+                // const subInfo = $(element).find('p:first');
+                // const runTime = subInfo.find('span.runtime').text()
+                // const genre = subInfo.find('span.genre').text().trim()
 
                 // director info
-                const directorElement = $(element).find('p:nth-child(7)').find('a').first();
+                const dirStarsContainer = $(element).find('div.ictulU')
+                const directorElement = dirStarsContainer.find('span.ePoirh').find('a').first();
                 const directorName = directorElement.text();
                 const directorLink = basePrefixUrl + directorElement.attr('href');
 
                 // top stars info
-                var stars = []
-                $(element).find('p:nth-child(7)').find('a:not(:first-child)').each((index, element) => {
-                    const starName = $(element).text();
-                    const starLink = $(element).attr('href');
-                    stars.push(new Stars(starName, basePrefixUrl + starLink))
-                });
+                const stars = dirStarsContainer.find('a.dli-cast-item').map(function() {
+                    return {
+                      name: $(this).text(),
+                      link: basePrefixUrl + $(this).attr('href')
+                    };
+                  }).get();
 
-                var movieData = new MovieInfo(movieName, year, ratingValue, movieTitleId, runTime, genre,
-                                            directorName, directorLink, stars)
+                var movieData = new MovieInfo(movieName, yearReleased, overallRating, userRating, 
+                    movieTitleId, runTime, numVotes, directorName, directorLink, stars)
                 movieList.push(movieData)
             });
-            let nextPageAnchorTag = $('div.list-pagination').find('a.lister-page-next')
-            let nextPageLink = nextPageAnchorTag.attr('href')
-            let nextPageUrl = basePrefixUrl + nextPageLink
-            pageCounter++
 
-            if (pageCounter < 1) {
-                getPageContent(nextPageUrl)
-            } else {
-                res.end(JSON.stringify({"rated":movieList}, null, 4))
-                const now = new Date()
-                console.log((now - start)/1000)
-                //exportResults(movieList)
-            }
+            res.end(JSON.stringify({"rated":movieList}, null, 4))
+            const now = new Date()
+            console.log((now - start)/1000)
+
+            // let nextPageAnchorTag = $('div.list-pagination').find('a.lister-page-next')
+            // let nextPageLink = nextPageAnchorTag.attr('href')
+            // let nextPageUrl = basePrefixUrl + nextPageLink
+            // pageCounter++
+
+            // if (pageCounter < 1) {
+            //     getPageContent(nextPageUrl)
+            // } else {
+            //     res.end(JSON.stringify({"rated":movieList}, null, 4))
+            //     const now = new Date()
+            //     console.log((now - start)/1000)
+            //     //exportResults(movieList)
+            // }
         })
         .catch((error) => {
             console.log(error)
