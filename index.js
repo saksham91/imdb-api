@@ -2,6 +2,7 @@ const PORT = process.env.PORT || 8000
 const express = require('express')
 const axios = require('axios')
 const cheerio = require('cheerio')
+const puppeteer = require('puppeteer')
 const fs = require('fs')
 
 const MovieInfo = require('./model/movieinfo.js');
@@ -23,6 +24,11 @@ let config = {
     headers: {'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 11_2_1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/88.0.4324.192 Safari/537.36'}
 }
 
+let requestHeaders = {
+    'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 11_2_1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/88.0.4324.192 Safari/537.36'
+}
+
+
 const exportResults = (parsedResults) => {
     fs.writeFile(outputFile, JSON.stringify(parsedResults, null, 4), (err) => {
       if (err) {
@@ -32,7 +38,121 @@ const exportResults = (parsedResults) => {
   }
 
 app.get('/', (req, res) => {
-    res.json("Hi there..")
+    res.json("Opening page..")
+})
+
+app.get('/ratedMovies', async (req, res) => {
+    const start = new Date();
+    try {
+        const browser = await puppeteer.launch();
+        const page = await browser.newPage();
+        await page.setExtraHTTPHeaders({...requestHeaders});
+    
+        // Go to the target URL
+        await page.goto(endPointUrl, { waitUntil: 'networkidle2' });
+
+        // Scroll to the end of the page
+        let previousHeight;
+        while (true) {
+            let currentHeight = await page.evaluate('document.body.scrollHeight');
+            if (previousHeight === currentHeight) break;
+            await page.evaluate('window.scrollTo(0, document.body.scrollHeight)');
+            await new Promise(resolve => setTimeout(resolve, 5000));
+            previousHeight = currentHeight;
+        }
+
+        // Wait for dynamic ratings to load
+        // await page.waitForSelector('.ratingGroup--user-rating');
+        // await page.waitForFunction(() => {
+        //     return document.querySelectorAll(".ratingGroup--user-rating > span.ipc-rating-star--rating").innerText !== '';
+        // }, { timeout: 30000 });
+
+        // Get the HTML content
+        const content = await page.content();
+        
+        // Close the browser
+        await browser.close();
+
+
+        // Load the content into Cheerio
+        const $ = cheerio.load(content);
+        const loadingTime = new Date()
+        console.log("Loading Time: " + (loadingTime - start)/1000)
+
+        var numRatedStr = $('div[data-testid="list-page-mc-total-items"]').text()
+        var numRatedInt = Number(numRatedStr)
+        let pageLimit = Math.ceil(Number(numRatedInt)/100)
+        $('.ipc-metadata-list-summary-item').each((index, element) => {
+            const movieNameTag = $(element).find('.ipc-title--base');
+            // homepage link for the movie title
+            const anchorTag = movieNameTag.find('a');
+            const movieLink = anchorTag.attr('href');
+            const match = movieLink.match(/\/title\/([a-z0-9]+)\//i);
+
+            // const moviePage = basePrefixUrl + movieLink
+
+            var movieTitleId = ""
+            if (match) {
+                movieTitleId = match[1];
+            }
+
+            // movie name
+            const movieTag = anchorTag.find('h3').text().split(".");
+            const movieName = movieTag[1].trim()
+
+            // year in which the movie was released
+            let yearReleased, runTime, censorRated;
+            const metaDataSpans = $('div.dli-title-metadata > span.dli-title-metadata-item');
+            yearReleased = $(metaDataSpans[0]).text();
+            runTime = $(metaDataSpans[1]).text();
+            censorRated = $(metaDataSpans[2]).text();
+
+            // movie rating by the user
+            const ratingWidget = $(element).find('div.dli-ratings-container');
+            const overallRating = ratingWidget.find('span.ipc-rating-star--rating').text();
+            const numVotes = ratingWidget.find('span.ipc-rating-star--voteCount').text().trim().replace(/[\(\)]+/g,'');
+            const userRating = ratingWidget.find('span.ipc-rating-star--currentUser > span').text();
+
+            // $(element).find('.ipl-rating-interactive__state').each(function() {
+            //     console.log("Checked: " + $(this).innerText)
+            // })
+
+            // var ratingValue = "1"
+            // if (movieTitleId) { 
+            //     const idToCheck = "#ipl-rating-selector-" + movieTitleId
+            //     const dataValue = $(idToCheck).attr('data-value');
+            //     if (dataValue) {
+            //         ratingValue = dataValue;
+            //       }
+            // }
+
+            // director info
+            const dirStarsContainer = $(element).find('div.ictulU')
+            const directorElement = dirStarsContainer.find('span.ePoirh').find('a').first();
+            const directorName = directorElement.text();
+            const directorLink = basePrefixUrl + directorElement.attr('href');
+
+            // top stars info
+            const stars = dirStarsContainer.find('a.dli-cast-item').map(function() {
+                return {
+                    name: $(this).text(),
+                    link: basePrefixUrl + $(this).attr('href')
+                };
+                }).get();
+
+            var movieData = new MovieInfo(movieName, yearReleased, overallRating, userRating, 
+                movieTitleId, runTime, numVotes, directorName, directorLink, stars)
+            movieList.push(movieData)
+        });
+
+        res.end(JSON.stringify({"rated":movieList}, null, 4))
+        const now = new Date()
+        console.log((now - start)/1000)
+        console.log("Total Movies: " + movieList.length)
+    } catch (error) {
+        console.error('Error:', error);
+        res.status(500).send('An error occurred');
+    }
 })
 
 app.get('/allRatedMovies', (req, res) => {
