@@ -10,19 +10,13 @@ const Stars = require('./model/actors.js');
 const { log } = require('console')
 
 const preFixurl = "https://www.imdb.com/user/ur"
-const userId = "25717993"
 const postFixUrl = "/ratings?view=detailed"
-const endPointUrl = preFixurl + userId + postFixUrl
 const outputFile = 'data.json'
 
 const basePrefixUrl = "https://www.imdb.com"
 
 const app = express()
 var movieList = []
-
-let config = {
-    headers: {'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 11_2_1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/88.0.4324.192 Safari/537.36'}
-}
 
 let requestHeaders = {
     'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 11_2_1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/88.0.4324.192 Safari/537.36'
@@ -41,7 +35,7 @@ app.get('/', (req, res) => {
     res.json("Opening page..")
 })
 
-app.get('/ratedMovies', async (req, res) => {
+app.get('/allRatedMovies/:userId', async (req, res) => {
     const start = new Date();
     try {
         const browser = await puppeteer.launch();
@@ -49,6 +43,8 @@ app.get('/ratedMovies', async (req, res) => {
         await page.setExtraHTTPHeaders({...requestHeaders});
     
         // Go to the target URL
+        const userId = req.params.userId
+        const url = preFixurl + userId + postFixUrl
         await page.goto(endPointUrl, { waitUntil: 'networkidle2' });
 
         // Scroll to the end of the page
@@ -138,7 +134,7 @@ app.get('/ratedMovies', async (req, res) => {
                     name: $(this).text(),
                     link: basePrefixUrl + $(this).attr('href')
                 };
-                }).get();
+            }).get();
 
             var movieData = new MovieInfo(movieName, yearReleased, overallRating, userRating, 
                 movieTitleId, runTime, numVotes, directorName, directorLink, stars)
@@ -155,7 +151,7 @@ app.get('/ratedMovies', async (req, res) => {
     }
 })
 
-app.get('/allRatedMovies', (req, res) => {
+app.get('/ratedMovies', (req, res) => {
     const start = new Date();
     res.set('Content-Type', 'text/plain')
     let pageCounter = 0
