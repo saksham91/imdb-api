@@ -1,12 +1,13 @@
 const PORT = process.env.PORT || 8000
-import express from 'express'
-import { get } from 'axios'
-import { load } from 'cheerio'
-import { launch } from 'puppeteer'
-import { writeFile } from 'fs'
+const express = require('express')
+const axios = require('axios')
+const cheerio = require('cheerio')
+const puppeteer = require('puppeteer')
+const fs = require('fs')
 
-import MovieInfo from './model/movieinfo.js'
-import Stars from './model/actors.js'
+const MovieInfo = require('./model/movieinfo.js');
+const Stars = require('./model/actors.js');
+const { log } = require('console')
 
 const preFixurl = "https://www.imdb.com/user/ur"
 const postFixUrl = "/ratings?view=detailed"
@@ -23,7 +24,7 @@ let requestHeaders = {
 
 
 const exportResults = (parsedResults) => {
-    writeFile(outputFile, JSON.stringify(parsedResults, null, 4), (err) => {
+    fs.writeFile(outputFile, JSON.stringify(parsedResults, null, 4), (err) => {
       if (err) {
         console.log(err)
       }
@@ -37,14 +38,14 @@ app.get('/', (req, res) => {
 app.get('/allRatedMovies/:userId', async (req, res) => {
     const start = new Date();
     try {
-        const browser = await launch();
+        const browser = await puppeteer.launch();
         const page = await browser.newPage();
         await page.setExtraHTTPHeaders({...requestHeaders});
     
         // Go to the target URL
         const userId = req.params.userId
         const url = preFixurl + userId + postFixUrl
-        await page.goto(endPointUrl, { waitUntil: 'networkidle2' });
+        await page.goto(url, { waitUntil: 'networkidle2' });
 
         // Scroll to the end of the page
         let previousHeight;
@@ -70,7 +71,7 @@ app.get('/allRatedMovies/:userId', async (req, res) => {
 
 
         // Load the content into Cheerio
-        const $ = load(content);
+        const $ = cheerio.load(content);
         const loadingTime = new Date()
         console.log("Loading Time: " + (loadingTime - start)/1000)
 
@@ -155,9 +156,9 @@ app.get('/ratedMovies', (req, res) => {
     res.set('Content-Type', 'text/plain')
     let pageCounter = 0
     const getPageContent = async (url) => {
-        await get(url, config)
+        await axios.get(url, config)
         .then((response) => {
-            const $ = load(response.data)
+            const $ = cheerio.load(response.data)
             var numRatedStr = $('div[data-testid="list-page-mc-total-items"]').text()
             var numRatedInt = Number(numRatedStr)
             let pageLimit = Math.ceil(Number(numRatedInt)/100)
@@ -261,9 +262,9 @@ app.get('/movieCast/:title', (req, res) => {
     const title = req.params.title
     const baseMovieUrl = "https://www.imdb.com/title/"
     const fullMovieUrl = baseMovieUrl + title + "/fullcredits"
-    get(fullMovieUrl)
+    axios.get(fullMovieUrl)
     .then((response) => {
-        const $ = load(response.data)
+        const $ = cheerio.load(response.data)
         const castList = $('table.cast_list');
         const actors = [];
 
