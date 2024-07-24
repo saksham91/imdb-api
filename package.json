@@ -1,6 +1,6 @@
 {
   "name": "imdb-api",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Scrapes a user's imdb rating activity page and gets useful data like all the movie that user has rated along with the ratings",
   "main": "index.js",
   "scripts": {
