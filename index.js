@@ -38,7 +38,7 @@ app.get('/allRatedMovies/:userId', async (req, res) => {
     const start = new Date();
     try {
         const browser = await puppeteer.launch({
-                headless: false,
+                headless: true,
                 args: ["--no-sandbox", "--disable-setuid-sandbox", "--disable-gpu"]
         });
         const page = await browser.newPage();
@@ -47,7 +47,7 @@ app.get('/allRatedMovies/:userId', async (req, res) => {
         // Go to the target URL
         const userId = req.params.userId
         const url = preFixurl + userId + postFixUrl
-        await page.goto(url, { waitUntil: 'networkidle2', timeout: 0 });
+        await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 0 });
 
         // Scroll to the end of the page
         let previousHeight;
