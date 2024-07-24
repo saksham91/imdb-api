@@ -38,7 +38,8 @@ app.get('/allRatedMovies/:userId', async (req, res) => {
     const start = new Date();
     try {
         const browser = await puppeteer.launch({
-                headless: true,
+                headless: false,
+                args: ["--no-sandbox", "--disable-setuid-sandbox", "--disable-gpu"]
         });
         const page = await browser.newPage();
         await page.setExtraHTTPHeaders({...requestHeaders});
