@@ -18,10 +18,9 @@ const basePrefixUrl = "https://www.imdb.com"
 const app = express()
 var movieList = []
 
-// let requestHeaders = {
-//     'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 11_2_1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/88.0.4324.192 Safari/537.36'
-// }
-
+let requestHeaders = {
+    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36'
+}
 
 const exportResults = (parsedResults) => {
     fs.writeFile(outputFile, JSON.stringify(parsedResults, null, 4), (err) => {
@@ -38,9 +37,11 @@ app.get('/', (req, res) => {
 app.get('/allRatedMovies/:userId', async (req, res) => {
     const start = new Date();
     try {
-        const browser = await puppeteer.launch();
+        const browser = await puppeteer.launch({
+                headless: true,
+        });
         const page = await browser.newPage();
-        // await page.setExtraHTTPHeaders({...requestHeaders});
+        await page.setExtraHTTPHeaders({...requestHeaders});
     
         // Go to the target URL
         const userId = req.params.userId
