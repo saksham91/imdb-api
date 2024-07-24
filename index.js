@@ -46,7 +46,7 @@ app.get('/allRatedMovies/:userId', async (req, res) => {
         // Go to the target URL
         const userId = req.params.userId
         const url = preFixurl + userId + postFixUrl
-        await page.goto(url, { waitUntil: 'networkidle2' });
+        await page.goto(url, { waitUntil: 'domcontentloaded' });
 
         // Scroll to the end of the page
         let previousHeight;
