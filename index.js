@@ -46,7 +46,8 @@ app.get('/allRatedMovies/:userId', async (req, res) => {
         // Go to the target URL
         const userId = req.params.userId
         const url = preFixurl + userId + postFixUrl
-        await page.goto(url, { waitUntil: 'domcontentloaded' });
+        await page.goto(url);
+        await page.waitForNetworkIdle();
 
         // Scroll to the end of the page
         let previousHeight;
@@ -54,7 +55,7 @@ app.get('/allRatedMovies/:userId', async (req, res) => {
             let currentHeight = await page.evaluate('document.body.scrollHeight');
             if (previousHeight === currentHeight) break;
             await page.evaluate('window.scrollTo(0, document.body.scrollHeight)');
-            await new Promise(resolve => setTimeout(resolve, 5000));
+            await new Promise(resolve => setTimeout(resolve, 4000));
             previousHeight = currentHeight;
         }
 
@@ -99,7 +100,7 @@ app.get('/allRatedMovies/:userId', async (req, res) => {
 
             // year in which the movie was released
             let yearReleased, runTime, censorRated;
-            const metaDataSpans = $('div.dli-title-metadata > span.dli-title-metadata-item');
+            const metaDataSpans = $(element).find('div.dli-title-metadata > span.dli-title-metadata-item');
             yearReleased = $(metaDataSpans[0]).text();
             runTime = $(metaDataSpans[1]).text();
             censorRated = $(metaDataSpans[2]).text();
